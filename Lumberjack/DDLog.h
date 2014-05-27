@@ -58,41 +58,16 @@
  * This big multiline macro makes all the other macros easier to read.
 **/
 
-#define LOG_MACRO(isAsynchronous, lvl, flg, ctx, atag, fnct, frmt, ...) \
+#define LOG_MACRO(isAsynchronous, lvl, flg, ctx, atag, frmt, ...)       \
         [DDLog log:isAsynchronous                                       \
              level:lvl                                                  \
               flag:flg                                                  \
            context:ctx                                                  \
               file:__FILE__                                             \
-          function:fnct                                                 \
+		  function:__PRETTY_FUNCTION__                                  \
               line:__LINE__                                             \
                tag:atag                                                 \
             format:(frmt), ##__VA_ARGS__]
-
-/**
- * Define the Objective-C and C versions of the macro.
- * These automatically inject the proper function name for either an objective-c method or c function.
- * 
- * We also define shorthand versions for asynchronous and synchronous logging.
-**/
-
-#define LOG_OBJC_MACRO(async, lvl, flg, ctx, frmt, ...) \
-        LOG_MACRO(async, lvl, flg, ctx, nil, sel_getName(_cmd), frmt, ##__VA_ARGS__)
-
-#define LOG_C_MACRO(async, lvl, flg, ctx, frmt, ...) \
-        LOG_MACRO(async, lvl, flg, ctx, nil, __FUNCTION__, frmt, ##__VA_ARGS__)
-
-#define SYNC_LOG_OBJC_MACRO(lvl, flg, ctx, frmt, ...) \
-        LOG_OBJC_MACRO(NO, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define ASYNC_LOG_OBJC_MACRO(lvl, flg, ctx, frmt, ...) \
-        LOG_OBJC_MACRO(YES, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define SYNC_LOG_C_MACRO(lvl, flg, ctx, frmt, ...) \
-        LOG_C_MACRO(NO, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define ASYNC_LOG_C_MACRO(lvl, flg, ctx, frmt, ...) \
-        LOG_C_MACRO(YES, lvl, flg, ctx, frmt, ##__VA_ARGS__)
 
 /**
  * Define version of the macro that only execute if the logLevel is above the threshold.
@@ -114,26 +89,14 @@
  * We also define shorthand versions for asynchronous and synchronous logging.
 **/
 
-#define LOG_MAYBE(async, lvl, flg, ctx, fnct, frmt, ...) \
-        do { if(lvl & flg) LOG_MACRO(async, lvl, flg, ctx, nil, fnct, frmt, ##__VA_ARGS__); } while(0)
+#define LOG_MAYBE(async, lvl, flg, ctx, frmt, ...) \
+		do { if(lvl & flg) LOG_MACRO(async, lvl, flg, ctx, nil, frmt, ##__VA_ARGS__); } while(0)
 
-#define LOG_OBJC_MAYBE(async, lvl, flg, ctx, frmt, ...) \
-        LOG_MAYBE(async, lvl, flg, ctx, sel_getName(_cmd), frmt, ##__VA_ARGS__)
+#define SYNC_LOG_MAYBE(lvl, flg, ctx, frmt, ...) \
+		LOG_MAYBE(NO, lvl, flg, ctx, frmt, ##__VA_ARGS__)
 
-#define LOG_C_MAYBE(async, lvl, flg, ctx, frmt, ...) \
-        LOG_MAYBE(async, lvl, flg, ctx, __FUNCTION__, frmt, ##__VA_ARGS__)
-
-#define SYNC_LOG_OBJC_MAYBE(lvl, flg, ctx, frmt, ...) \
-        LOG_OBJC_MAYBE(NO, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define ASYNC_LOG_OBJC_MAYBE(lvl, flg, ctx, frmt, ...) \
-        LOG_OBJC_MAYBE(YES, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define SYNC_LOG_C_MAYBE(lvl, flg, ctx, frmt, ...) \
-        LOG_C_MAYBE(NO, lvl, flg, ctx, frmt, ##__VA_ARGS__)
-
-#define ASYNC_LOG_C_MAYBE(lvl, flg, ctx, frmt, ...) \
-        LOG_C_MAYBE(YES, lvl, flg, ctx, frmt, ##__VA_ARGS__)
+#define ASYNC_LOG_MAYBE(lvl, flg, ctx, frmt, ...) \
+		LOG_MAYBE(YES, lvl, flg, ctx, frmt, ##__VA_ARGS__)
 
 /**
  * Define versions of the macros that also accept tags.
@@ -145,20 +108,8 @@
  * Thes macros just make it a little easier to extend logging functionality.
 **/
 
-#define LOG_OBJC_TAG_MACRO(async, lvl, flg, ctx, tag, frmt, ...) \
-        LOG_MACRO(async, lvl, flg, ctx, tag, sel_getName(_cmd), frmt, ##__VA_ARGS__)
-
-#define LOG_C_TAG_MACRO(async, lvl, flg, ctx, tag, frmt, ...) \
-        LOG_MACRO(async, lvl, flg, ctx, tag, __FUNCTION__, frmt, ##__VA_ARGS__)
-
-#define LOG_TAG_MAYBE(async, lvl, flg, ctx, tag, fnct, frmt, ...) \
-        do { if(lvl & flg) LOG_MACRO(async, lvl, flg, ctx, tag, fnct, frmt, ##__VA_ARGS__); } while(0)
-
-#define LOG_OBJC_TAG_MAYBE(async, lvl, flg, ctx, tag, frmt, ...) \
-        LOG_TAG_MAYBE(async, lvl, flg, ctx, tag, sel_getName(_cmd), frmt, ##__VA_ARGS__)
-
-#define LOG_C_TAG_MAYBE(async, lvl, flg, ctx, tag, frmt, ...) \
-        LOG_TAG_MAYBE(async, lvl, flg, ctx, tag, __FUNCTION__, frmt, ##__VA_ARGS__)
+#define LOG_TAG_MAYBE(async, lvl, flg, ctx, tag, frmt, ...) \
+		do { if(lvl & flg) LOG_MACRO(async, lvl, flg, ctx, tag, frmt, ##__VA_ARGS__); } while(0)
 
 /**
  * Define the standard options.
@@ -251,40 +202,11 @@
 #define LOG_ASYNC_DEBUG    (YES && LOG_ASYNC_ENABLED)
 #define LOG_ASYNC_VERBOSE  (YES && LOG_ASYNC_ENABLED)
 
-#define DDLogError(frmt, ...)   LOG_OBJC_MAYBE(LOG_ASYNC_ERROR,   LOG_LEVEL_DEF, LOG_FLAG_ERROR,   0, frmt, ##__VA_ARGS__)
-#define DDLogWarn(frmt, ...)    LOG_OBJC_MAYBE(LOG_ASYNC_WARN,    LOG_LEVEL_DEF, LOG_FLAG_WARN,    0, frmt, ##__VA_ARGS__)
-#define DDLogInfo(frmt, ...)    LOG_OBJC_MAYBE(LOG_ASYNC_INFO,    LOG_LEVEL_DEF, LOG_FLAG_INFO,    0, frmt, ##__VA_ARGS__)
-#define DDLogDebug(frmt, ...)   LOG_OBJC_MAYBE(LOG_ASYNC_DEBUG,   LOG_LEVEL_DEF, LOG_FLAG_DEBUG,   0, frmt, ##__VA_ARGS__)
-#define DDLogVerbose(frmt, ...) LOG_OBJC_MAYBE(LOG_ASYNC_VERBOSE, LOG_LEVEL_DEF, LOG_FLAG_VERBOSE, 0, frmt, ##__VA_ARGS__)
-
-#define DDLogCError(frmt, ...)   LOG_C_MAYBE(LOG_ASYNC_ERROR,   LOG_LEVEL_DEF, LOG_FLAG_ERROR,   0, frmt, ##__VA_ARGS__)
-#define DDLogCWarn(frmt, ...)    LOG_C_MAYBE(LOG_ASYNC_WARN,    LOG_LEVEL_DEF, LOG_FLAG_WARN,    0, frmt, ##__VA_ARGS__)
-#define DDLogCInfo(frmt, ...)    LOG_C_MAYBE(LOG_ASYNC_INFO,    LOG_LEVEL_DEF, LOG_FLAG_INFO,    0, frmt, ##__VA_ARGS__)
-#define DDLogCDebug(frmt, ...)   LOG_C_MAYBE(LOG_ASYNC_DEBUG,   LOG_LEVEL_DEF, LOG_FLAG_DEBUG,   0, frmt, ##__VA_ARGS__)
-#define DDLogCVerbose(frmt, ...) LOG_C_MAYBE(LOG_ASYNC_VERBOSE, LOG_LEVEL_DEF, LOG_FLAG_VERBOSE, 0, frmt, ##__VA_ARGS__)
-
-/**
- * The THIS_FILE macro gives you an NSString of the file name.
- * For simplicity and clarity, the file name does not include the full path or file extension.
- * 
- * For example: DDLogWarn(@"%@: Unable to find thingy", THIS_FILE) -> @"MyViewController: Unable to find thingy"
-**/
-
-NSString *DDExtractFileNameWithoutExtension(const char *filePath, BOOL copy);
-
-#define THIS_FILE (DDExtractFileNameWithoutExtension(__FILE__, NO))
-
-/**
- * The THIS_METHOD macro gives you the name of the current objective-c method.
- * 
- * For example: DDLogWarn(@"%@ - Requires non-nil strings", THIS_METHOD) -> @"setMake:model: requires non-nil strings"
- * 
- * Note: This does NOT work in straight C functions (non objective-c).
- * Instead you should use the predefined __FUNCTION__ macro.
-**/
-
-#define THIS_METHOD NSStringFromSelector(_cmd)
-
+#define DDLogError(frmt, ...)   LOG_MAYBE(LOG_ASYNC_ERROR,   LOG_LEVEL_DEF, LOG_FLAG_ERROR,   0, frmt, ##__VA_ARGS__)
+#define DDLogWarn(frmt, ...)    LOG_MAYBE(LOG_ASYNC_WARN,    LOG_LEVEL_DEF, LOG_FLAG_WARN,    0, frmt, ##__VA_ARGS__)
+#define DDLogInfo(frmt, ...)    LOG_MAYBE(LOG_ASYNC_INFO,    LOG_LEVEL_DEF, LOG_FLAG_INFO,    0, frmt, ##__VA_ARGS__)
+#define DDLogDebug(frmt, ...)   LOG_MAYBE(LOG_ASYNC_DEBUG,   LOG_LEVEL_DEF, LOG_FLAG_DEBUG,   0, frmt, ##__VA_ARGS__)
+#define DDLogVerbose(frmt, ...) LOG_MAYBE(LOG_ASYNC_VERBOSE, LOG_LEVEL_DEF, LOG_FLAG_VERBOSE, 0, frmt, ##__VA_ARGS__)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -

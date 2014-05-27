@@ -142,7 +142,7 @@
  * 
  * static NSString *const PurpleTag = @"PurpleTag";
  * 
- * #define DDLogPurple(frmt, ...) LOG_OBJC_TAG_MACRO(NO, 0, 0, 0, PurpleTag, frmt, ##__VA_ARGS__)
+ * #define DDLogPurple(frmt, ...) LOG_MACRO(NO, 0, 0, 0, PurpleTag, frmt, ##__VA_ARGS__)
  * 
  * And then in your applicationDidFinishLaunching, or wherever you configure Lumberjack:
  * 
