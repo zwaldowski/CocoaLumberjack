@@ -1021,22 +1021,12 @@ static char *dd_str_copy(const char *str)
   return self;
 }
 
-- (NSString *)threadID
+- (void)getThreadID:(DDLogThreadID)tid length:(out size_t *)outLength
 {
-    return [[NSString alloc] initWithFormat:@"%x", machThreadID];
-}
-
-- (NSString *)fileName
-{
-    return DDExtractFileNameWithoutExtension(file, NO);
-}
-
-- (NSString *)methodName
-{
-    if (function == NULL)
-        return nil;
-    else
-        return [[NSString alloc] initWithUTF8String:function];
+	size_t len = snprintf(tid, 9, "%x", machThreadID);
+	if (outLength) {
+		*outLength = MIN(8, len);
+	}
 }
 
 - (void)dealloc

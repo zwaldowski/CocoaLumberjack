@@ -1137,12 +1137,11 @@ static DDTTYLogger *sharedInstance;
             // 
             // 1 hex char = 4 bits
             // 8 hex chars for 32 bit, plus ending '\0' = 9
-            
-            char tid[9];
-            len = snprintf(tid, 9, "%x", logMessage->machThreadID);
-            
-            size_t tidLen = (NSUInteger)MAX(MIN(9-1, len), 0);
-            
+
+			DDLogThreadID tid = { 0 };
+			size_t tidLen;
+			[logMessage getThreadID:tid length:&tidLen];
+
             // Here is our format: "%s %s[%i:%s] %s", timestamp, appName, processID, threadID, logMsg
             
             struct iovec v[13];
@@ -1188,8 +1187,7 @@ static DDTTYLogger *sharedInstance;
             v[7].iov_base = ":";
             v[7].iov_len = 1;
             
-            v[8].iov_base = tid;
-            v[8].iov_len = MIN((size_t)8, tidLen); // snprintf doesn't return what you might think
+            v[8] = (struct iovec){ .iov_base = tid, .iov_len = tidLen };
             
             v[9].iov_base = "] ";
             v[9].iov_len = 2;

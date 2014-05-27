@@ -533,8 +533,17 @@ enum {
 };
 typedef int DDLogMessageOptions;
 
+// How many characters are needed for a thread ID?
+// mach_port_t is an unsigned int.
+// 1 hex char = 4 bits
+// 8 hex chars for 32 bit, plus ending '\0' = 9
+typedef char DDLogThreadID[9];
+
 @interface DDLogMessage : NSObject <NSCopying>
 {
+
+@private
+	mach_port_t machThreadID;
 
 // The public variables below can be accessed directly (for speed).
 // For example: logMessage->logLevel
@@ -548,7 +557,6 @@ typedef int DDLogMessageOptions;
     char *file;
     char *function;
     int lineNumber;
-    mach_port_t machThreadID;
     char *queueLabel;
     NSString *threadName;
     
@@ -595,21 +603,11 @@ typedef int DDLogMessageOptions;
                      timestamp:(NSDate *)aTimestamp;
 
 /**
- * Returns the threadID as it appears in NSLog.
- * That is, it is a hexadecimal value which is calculated from the machThreadID.
-**/
-- (NSString *)threadID;
-
-/**
- * Convenience property to get just the file name, as the file variable is generally the full file path.
- * This method does not include the file extension, which is generally unwanted for logging purposes.
-**/
-- (NSString *)fileName;
-
-/**
- * Returns the function variable in NSString form.
-**/
-- (NSString *)methodName;
+ * Fetches the threadID as it appears in NSLog.
+ * That is, it is a hexadecimal value which is calculated from initializing
+ * thread ID.
+ **/
+- (void)getThreadID:(DDLogThreadID)tid length:(out size_t *)outLength;
 
 @end
 
