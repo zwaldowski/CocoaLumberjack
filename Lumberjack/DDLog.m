@@ -506,7 +506,7 @@ static dispatch_semaphore_t queueSemaphore;
     // The numClasses method now tells us how many classes we have.
     // So we can allocate our buffer, and get pointers to all the class definitions.
     
-    Class *classes = numClasses ? (Class *)malloc(sizeof(Class) * numClasses) : NULL;
+    Class *classes = (__unsafe_unretained Class *)(numClasses ? malloc(sizeof(Class) * numClasses) : NULL);
     if (classes == NULL) return nil;
     
     numClasses = (NSUInteger)MAX(objc_getClassList(classes, (int)numClasses), 0);
