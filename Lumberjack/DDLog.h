@@ -590,15 +590,6 @@ typedef char DDLogThreadID[9];
                       function:(const char *)function
                           line:(int)line
                            tag:(id)tag
-                       options:(DDLogMessageOptions)optionsMask;
-- (instancetype)initWithLogMsg:(NSString *)logMsg
-                         level:(int)logLevel
-                          flag:(int)logFlag
-                       context:(int)logContext
-                          file:(const char *)file
-                      function:(const char *)function
-                          line:(int)line
-                           tag:(id)tag
                        options:(DDLogMessageOptions)optionsMask
                      timestamp:(NSDate *)aTimestamp;
 

@@ -360,7 +360,8 @@ static dispatch_semaphore_t queueSemaphore;
                                                                function:function
                                                                    line:line
                                                                     tag:tag
-                                                                options:0];
+																options:0
+															  timestamp:nil];
         
         [self queueLogMessage:logMessage asynchronously:asynchronous];
         
@@ -390,7 +391,8 @@ static dispatch_semaphore_t queueSemaphore;
                                                                function:function
                                                                    line:line
                                                                     tag:tag
-                                                                options:0];
+																options:0
+															  timestamp:nil];
         
         [self queueLogMessage:logMessage asynchronously:asynchronous];
     }
@@ -856,28 +858,6 @@ static char *dd_str_copy(const char *str)
     result[length] = 0;
     
     return result;
-}
-
-- (instancetype)initWithLogMsg:(NSString *)msg
-                         level:(int)level
-                          flag:(int)flag
-                       context:(int)context
-                          file:(const char *)aFile
-                      function:(const char *)aFunction
-                          line:(int)line
-                           tag:(id)aTag
-                       options:(DDLogMessageOptions)optionsMask
-{
-  return [self initWithLogMsg:msg
-                        level:level
-                         flag:flag
-                      context:context
-                         file:aFile
-                     function:aFunction
-                         line:line
-                          tag:aTag
-                      options:optionsMask
-                    timestamp:nil];
 }
 
 - (instancetype)initWithLogMsg:(NSString *)msg
