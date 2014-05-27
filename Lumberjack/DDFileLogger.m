@@ -684,7 +684,7 @@ BOOL doesAppRunInBackground(void);
     NSLogVerbose(@"DDFileLogger: logFileCreationDate: %@", logFileCreationDate);
     NSLogVerbose(@"DDFileLogger: logFileRollingDate : %@", logFileRollingDate);
     
-    rollingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, loggerQueue);
+	rollingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.loggerQueue);
     
     dispatch_source_set_event_handler(rollingTimer, ^{ @autoreleasepool {
         
@@ -888,7 +888,7 @@ BOOL doesAppRunInBackground(void);
                 DISPATCH_SOURCE_TYPE_VNODE,
                 [currentLogFileHandle fileDescriptor],
                 DISPATCH_VNODE_DELETE | DISPATCH_VNODE_RENAME,
-                loggerQueue
+				self.loggerQueue
             );
 
             dispatch_source_set_event_handler(currentLogFileVnode, ^{ @autoreleasepool {

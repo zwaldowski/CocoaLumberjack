@@ -637,16 +637,12 @@ typedef int DDLogMessageOptions;
 @interface DDAbstractLogger : NSObject <DDLogger>
 {
     id <DDLogFormatter> formatter;
-    
-    dispatch_queue_t loggerQueue;
 }
 
 - (id <DDLogFormatter>)logFormatter;
 - (void)setLogFormatter:(id <DDLogFormatter>)formatter;
 
-// For thread-safety assertions
-- (BOOL)isOnGlobalLoggingQueue;
-- (BOOL)isOnInternalLoggerQueue;
+@property (nonatomic, readonly) dispatch_queue_t loggerQueue;
 
 - (void)performBlock:(void(^)(void))block completion:(void(^)(void))completion;
 - (void)performGetterBlock:(void(^)(void))block;

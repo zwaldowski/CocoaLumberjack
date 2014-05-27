@@ -1098,7 +1098,7 @@ static char *dd_str_copy(const char *str)
             loggerQueueName = [[self loggerName] UTF8String];
         }
         
-        loggerQueue = dispatch_queue_create(loggerQueueName, NULL);
+		_loggerQueue = dispatch_queue_create(loggerQueueName, NULL);
         
         // We're going to use dispatch_queue_set_specific() to "mark" our loggerQueue.
         // Later we can use dispatch_get_specific() to determine if we're executing on our loggerQueue.
@@ -1117,7 +1117,7 @@ static char *dd_str_copy(const char *str)
         void *key = (__bridge void *)self;
         void *nonNullValue = (__bridge void *)self;
         
-        dispatch_queue_set_specific(loggerQueue, key, nonNullValue, NULL);
+		dispatch_queue_set_specific(_loggerQueue, key, nonNullValue, NULL);
     }
     return self;
 }
@@ -1125,7 +1125,7 @@ static char *dd_str_copy(const char *str)
 - (void)dealloc
 {
     #if !OS_OBJECT_USE_OBJC
-    if (loggerQueue) dispatch_release(loggerQueue);
+	if (_loggerQueue) dispatch_release(_loggerQueue);
     #endif
 }
 
@@ -1160,11 +1160,6 @@ static char *dd_str_copy(const char *str)
 			[formatter didAddToLogger:self];
 		}
 	}];
-}
-
-- (dispatch_queue_t)loggerQueue
-{
-    return loggerQueue;
 }
 
 - (NSString *)loggerName
@@ -1228,8 +1223,9 @@ static char *dd_str_copy(const char *str)
 	NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
     NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
 
+	dispatch_queue_t queue = self.loggerQueue;
 	[DDLog performBlockAndWait:^{
-		dispatch_sync(loggerQueue, DDBlockInAutoreleasePool(block));
+		dispatch_sync(queue, DDBlockInAutoreleasePool(block));
 	}];
 }
 
@@ -1240,8 +1236,9 @@ static char *dd_str_copy(const char *str)
     NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
     NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
 
+	dispatch_queue_t queue = self.loggerQueue;
 	[DDLog performBlock:^{
-		dispatch_async(loggerQueue, DDBlockInAutoreleasePool(block));
+		dispatch_async(queue, DDBlockInAutoreleasePool(block));
 	}];
 }
 
@@ -1257,8 +1254,9 @@ static char *dd_str_copy(const char *str)
     if ([self isOnInternalLoggerQueue]) {
         inner();
     } else {
+		dispatch_queue_t queue = self.loggerQueue;
 		[DDLog performBlock:^{
-			dispatch_async(loggerQueue, DDBlockInAutoreleasePool(inner));
+			dispatch_async(queue, DDBlockInAutoreleasePool(inner));
 		}];
     }
 }
