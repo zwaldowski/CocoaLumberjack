@@ -425,7 +425,9 @@ BOOL doesAppRunInBackground(void);
 **/
 - (NSArray *)sortedLogFileInfos
 {
-    return [[self unsortedLogFileInfos] sortedArrayUsingSelector:@selector(reverseCompareByCreationDate:)];
+	return [[self unsortedLogFileInfos] sortedArrayWithOptions:NSSortConcurrent usingComparator:^(DDLogFileInfo *obj1, DDLogFileInfo *obj2) {
+		return [obj2.creationDate compare:obj2.creationDate];
+	}];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1368,38 +1370,6 @@ static int exception_count = 0;
     }
     
     return NO;
-}
-
-- (NSComparisonResult)reverseCompareByCreationDate:(DDLogFileInfo *)another
-{
-    NSDate *us = [self creationDate];
-    NSDate *them = [another creationDate];
-    
-    NSComparisonResult result = [us compare:them];
-    
-    if (result == NSOrderedAscending)
-        return NSOrderedDescending;
-    
-    if (result == NSOrderedDescending)
-        return NSOrderedAscending;
-    
-    return NSOrderedSame;
-}
-
-- (NSComparisonResult)reverseCompareByModificationDate:(DDLogFileInfo *)another
-{
-    NSDate *us = [self modificationDate];
-    NSDate *them = [another modificationDate];
-    
-    NSComparisonResult result = [us compare:them];
-    
-    if (result == NSOrderedAscending)
-        return NSOrderedDescending;
-    
-    if (result == NSOrderedDescending)
-        return NSOrderedAscending;
-    
-    return NSOrderedSame;
 }
 
 @end

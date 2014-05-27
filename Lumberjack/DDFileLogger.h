@@ -377,7 +377,4 @@
 
 #endif
 
-- (NSComparisonResult)reverseCompareByCreationDate:(DDLogFileInfo *)another;
-- (NSComparisonResult)reverseCompareByModificationDate:(DDLogFileInfo *)another;
-
 @end
