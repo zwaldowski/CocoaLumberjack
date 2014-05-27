@@ -57,6 +57,9 @@
 
 static void *const GlobalLoggingQueueIdentityKey = (void *)&GlobalLoggingQueueIdentityKey;
 
+static BOOL DDLogIsOnGlobalLoggingQueue(void) {
+	return (dispatch_get_specific(GlobalLoggingQueueIdentityKey) != NULL);
+}
 
 @interface DDLoggerNode : NSObject {
 @public 
@@ -566,7 +569,7 @@ static unsigned int numProcessors;
     // Add to loggers array.
     // Need to create loggerQueue if loggerNode doesn't provide one.
 
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
+	NSAssert(DDLogIsOnGlobalLoggingQueue(),
             @"This method should only be run on the logging thread/queue");
     
     dispatch_queue_t loggerQueue = NULL;
@@ -608,7 +611,7 @@ static unsigned int numProcessors;
 {
     // Find associated loggerNode in list of added loggers
 
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
+	NSAssert(DDLogIsOnGlobalLoggingQueue(),
             @"This method should only be run on the logging thread/queue");
     
     DDLoggerNode *loggerNode = nil;
@@ -647,7 +650,7 @@ static unsigned int numProcessors;
 {
     // Notify all loggers
     
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
+	NSAssert(DDLogIsOnGlobalLoggingQueue(),
             @"This method should only be run on the logging thread/queue");
 
     for (DDLoggerNode *loggerNode in loggers)
@@ -668,7 +671,7 @@ static unsigned int numProcessors;
 
 + (NSArray *)lt_allLoggers
 {
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
+	NSAssert(DDLogIsOnGlobalLoggingQueue(),
             @"This method should only be run on the logging thread/queue");
 
     NSMutableArray *theLoggers = [NSMutableArray new];
@@ -756,7 +759,7 @@ static unsigned int numProcessors;
     // Now we need to propogate the flush request to any loggers that implement the flush method.
     // This is designed for loggers that buffer IO.
 
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
+	NSAssert(DDLogIsOnGlobalLoggingQueue(),
             @"This method should only be run on the logging thread/queue");
         
     for (DDLoggerNode *loggerNode in loggers)
@@ -1166,7 +1169,7 @@ static char *dd_str_copy(const char *str)
 
 - (BOOL)isOnGlobalLoggingQueue
 {
-    return (dispatch_get_specific(GlobalLoggingQueueIdentityKey) != NULL);
+	return DDLogIsOnGlobalLoggingQueue();
 }
 
 - (BOOL)isOnInternalLoggerQueue
