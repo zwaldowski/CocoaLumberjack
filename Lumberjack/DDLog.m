@@ -2,8 +2,6 @@
 
 #import <pthread.h>
 #import <objc/runtime.h>
-#import <mach/mach_host.h>
-#import <mach/host_info.h>
 #import <libkern/OSAtomic.h>
 #import <Availability.h>
 #if TARGET_OS_IPHONE
@@ -81,7 +79,6 @@ static BOOL DDLogIsOnGlobalLoggingQueue(void) {
 + (void)lt_removeLogger:(id <DDLogger>)logger;
 + (void)lt_removeAllLoggers;
 + (NSArray *)lt_allLoggers;
-+ (void)lt_log:(DDLogMessage *)logMessage;
 + (void)lt_flush;
 
 @end
@@ -115,9 +112,6 @@ static dispatch_group_t loggingGroup;
 // a maximum size is enforced (LOG_MAX_QUEUE_SIZE).
 static dispatch_semaphore_t queueSemaphore;
 
-// Minor optimization for uniprocessor machines
-static unsigned int numProcessors;
-
 /**
  * The runtime sends initialize to each class in a program exactly one time just before the class,
  * or any class that inherits from it, is sent its first message from within the program. (Thus the
@@ -142,23 +136,6 @@ static unsigned int numProcessors;
         dispatch_queue_set_specific(loggingQueue, GlobalLoggingQueueIdentityKey, nonNullValue, NULL);
         
         queueSemaphore = dispatch_semaphore_create(LOG_MAX_QUEUE_SIZE);
-        
-        // Figure out how many processors are available.
-        // This may be used later for an optimization on uniprocessor machines.
-        
-        host_basic_info_data_t hostInfo;
-        mach_msg_type_number_t infoCount;
-        
-        infoCount = HOST_BASIC_INFO_COUNT;
-        host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hostInfo, &infoCount);
-        
-        unsigned int result = (unsigned int)(hostInfo.max_cpus);
-        unsigned int one    = (unsigned int)(1);
-        
-        numProcessors = MAX(result, one);
-        
-        NSLogDebug(@"DDLog: numProcessors = %u", numProcessors);
-        
         
 #if TARGET_OS_IPHONE
         NSString *notificationName = @"UIApplicationWillTerminateNotification";
@@ -313,10 +290,46 @@ static unsigned int numProcessors;
     // It is time to queue our log message.
     
     dispatch_block_t logBlock = ^{ @autoreleasepool {
-        
-        [self lt_log:logMessage];
+		// Execute each logger concurrently, each within its own queue.
+		// All blocks are added to same group.
+		// After each block has been queued, wait on group.
+		//
+		// The waiting ensures that a slow logger doesn't end up with a large queue of pending log messages.
+		// This would defeat the purpose of the efforts we made earlier to restrict the max queue size.
+
+		for (DDLoggerNode *loggerNode in loggers)
+		{
+			// skip the loggers that shouldn't write this message based on the logLevel
+
+			if (!(logMessage->logFlag & loggerNode.logLevel))
+				continue;
+
+			dispatch_group_async(loggingGroup, loggerNode->loggerQueue, ^{ @autoreleasepool {
+
+				[loggerNode->logger logMessage:logMessage];
+
+			}});
+		}
+
+		// If our queue got too big, there may be blocked threads waiting to add log messages to the queue.
+		// Since we've now dequeued an item from the log, we may need to unblock the next thread.
+
+		// We are using a counting semaphore provided by GCD.
+		// The semaphore is initialized with our LOG_MAX_QUEUE_SIZE value.
+		// When a log message is queued this value is decremented.
+		// When a log message is dequeued this value is incremented.
+		// If the value ever drops below zero,
+		// the queueing thread blocks and waits in FIFO order for us to signal it.
+		//
+		// A dispatch semaphore is an efficient implementation of a traditional counting semaphore.
+		// Dispatch semaphores call down to the kernel only when the calling thread needs to be blocked.
+		// If the calling semaphore does not need to block, no kernel call is made.
+
+		dispatch_group_notify(loggingGroup, loggingQueue, ^{
+			dispatch_semaphore_signal(queueSemaphore);
+		});
     }};
-    
+
     if (asyncFlag)
         dispatch_async(loggingQueue, logBlock);
     else
@@ -682,74 +695,6 @@ static unsigned int numProcessors;
     }
 
     return [theLoggers copy];
-}
-
-+ (void)lt_log:(DDLogMessage *)logMessage
-{
-    // Execute the given log message on each of our loggers.
-
-    NSAssert(dispatch_get_specific(GlobalLoggingQueueIdentityKey),
-            @"This method should only be run on the logging thread/queue");
-    
-    if (numProcessors > 1)
-    {
-        // Execute each logger concurrently, each within its own queue.
-        // All blocks are added to same group.
-        // After each block has been queued, wait on group.
-        // 
-        // The waiting ensures that a slow logger doesn't end up with a large queue of pending log messages.
-        // This would defeat the purpose of the efforts we made earlier to restrict the max queue size.
-        
-        for (DDLoggerNode *loggerNode in loggers)
-        {
-            // skip the loggers that shouldn't write this message based on the logLevel
-
-            if (!(logMessage->logFlag & loggerNode.logLevel))
-                continue;
-
-            dispatch_group_async(loggingGroup, loggerNode->loggerQueue, ^{ @autoreleasepool {
-                
-                [loggerNode->logger logMessage:logMessage];
-            
-            }});
-        }
-        
-        dispatch_group_wait(loggingGroup, DISPATCH_TIME_FOREVER);
-    }
-    else
-    {
-        // Execute each logger serialy, each within its own queue.
-        
-        for (DDLoggerNode *loggerNode in loggers)
-        {
-            // skip the loggers that shouldn't write this message based on the logLevel
-            
-            if (!(logMessage->logFlag & loggerNode.logLevel))
-                continue;
-
-            dispatch_sync(loggerNode->loggerQueue, ^{ @autoreleasepool {
-                
-                [loggerNode->logger logMessage:logMessage];
-                
-            }});
-        }
-    }
-    
-    // If our queue got too big, there may be blocked threads waiting to add log messages to the queue.
-    // Since we've now dequeued an item from the log, we may need to unblock the next thread.
-    
-    // We are using a counting semaphore provided by GCD.
-    // The semaphore is initialized with our LOG_MAX_QUEUE_SIZE value.
-    // When a log message is queued this value is decremented.
-    // When a log message is dequeued this value is incremented.
-    // If the value ever drops below zero,
-    // the queueing thread blocks and waits in FIFO order for us to signal it.
-    // 
-    // A dispatch semaphore is an efficient implementation of a traditional counting semaphore.
-    // Dispatch semaphores call down to the kernel only when the calling thread needs to be blocked.
-    // If the calling semaphore does not need to block, no kernel call is made.
-    
-    dispatch_semaphore_signal(queueSemaphore);
 }
 
 + (void)lt_flush
