@@ -577,7 +577,7 @@ BOOL doesAppRunInBackground(void);
 
 @implementation DDFileLogger
 
-- (id)init
+- (instancetype)init
 {
     DDLogFileManagerDefault *defaultLogFileManager = [[DDLogFileManagerDefault alloc] init];
     
@@ -586,14 +586,13 @@ BOOL doesAppRunInBackground(void);
 
 - (instancetype)initWithLogFileManager:(id <DDLogFileManager>)aLogFileManager
 {
-    if ((self = [super init]))
+	self = [super initWithFormatter:[[DDLogFileFormatterDefault alloc] init]];
+	if (self)
     {
         maximumFileSize = DEFAULT_LOG_MAX_FILE_SIZE;
         rollingFrequency = DEFAULT_LOG_ROLLING_FREQUENCY;
         
         logFileManager = aLogFileManager;
-        
-        formatter = [[DDLogFileFormatterDefault alloc] init];
     }
     return self;
 }

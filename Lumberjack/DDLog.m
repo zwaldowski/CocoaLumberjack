@@ -1088,7 +1088,14 @@ static char *dd_str_copy(const char *str)
 
 @implementation DDAbstractLogger
 
-- (id)init
+@synthesize logFormatter = formatter;
+
+- (instancetype)init
+{
+	return (self = [self initWithFormatter:nil]);
+}
+
+- (instancetype)initWithFormatter:(id <DDLogFormatter>)formatter
 {
     if ((self = [super init]))
     {

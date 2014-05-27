@@ -630,8 +630,8 @@ typedef int DDLogMessageOptions;
  * 
  * To simplify things, an abstract logger is provided that implements the getter and setter.
  * 
- * Logger implementations may simply extend this class,
- * and they can ACCESS THE FORMATTER VARIABLE DIRECTLY from within their logMessage method!
+ * Logger implementations may simply extend this class, and for performance
+ * reasons ACCESS THE FORMATTER VARIABLE DIRECTLY from within -logMessage:.
 **/
 
 @interface DDAbstractLogger : NSObject <DDLogger>
@@ -639,9 +639,9 @@ typedef int DDLogMessageOptions;
     id <DDLogFormatter> formatter;
 }
 
-- (id <DDLogFormatter>)logFormatter;
-- (void)setLogFormatter:(id <DDLogFormatter>)formatter;
+- (instancetype)initWithFormatter:(id <DDLogFormatter>)formatter __attribute__((objc_designated_initializer));
 
+@property (nonatomic, strong) id <DDLogFormatter> logFormatter;
 @property (nonatomic, readonly) dispatch_queue_t loggerQueue;
 
 - (void)performBlock:(void(^)(void))block completion:(void(^)(void))completion;
