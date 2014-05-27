@@ -790,12 +790,6 @@ BOOL doesAppRunInBackground(void);
     dispatch_resume(rollingTimer);
 }
 
-
-- (void)rollLogFile
-{
-    [self rollLogFileWithCompletionBlock:nil];
-}
-
 - (void)rollLogFileWithCompletionBlock:(void (^)())completionBlock
 {
     // This method is public.

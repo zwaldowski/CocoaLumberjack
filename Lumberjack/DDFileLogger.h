@@ -279,10 +279,6 @@
 
 - (void)rollLogFileWithCompletionBlock:(void (^)())completionBlock;
 
-// Method is deprecated. Use rollLogFileWithCompletionBlock: method instead.
-
-- (void)rollLogFile __attribute((deprecated));
-
 // Inherited from DDAbstractLogger
 
 // - (id <DDLogFormatter>)logFormatter;
