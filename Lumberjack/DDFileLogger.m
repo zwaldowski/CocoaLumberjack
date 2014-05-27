@@ -134,10 +134,9 @@ BOOL doesAppRunInBackground(void);
     {
         NSLogInfo(@"DDFileLogManagerDefault: Responding to configuration change: maximumNumberOfLogFiles");
         
-        dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
-            
-            [self deleteOldLogFiles];
-        }});
+        [DDLog performBlock:^{
+			[self deleteOldLogFiles];
+		}];
     }
 }
 
@@ -625,118 +624,35 @@ BOOL doesAppRunInBackground(void);
 - (unsigned long long)maximumFileSize
 {
     __block unsigned long long result;
-    
-    dispatch_block_t block = ^{
-        result = maximumFileSize;
-    };
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation MUST access the maximumFileSize variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_sync(globalLoggingQueue, ^{
-        dispatch_sync(loggerQueue, block);
-    });
-    
+	[self performGetterBlock:^{
+		result = maximumFileSize;
+	}];
     return result;
 }
 
 - (void)setMaximumFileSize:(unsigned long long)newMaximumFileSize
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+	[self performSetterBlock:^{
         maximumFileSize = newMaximumFileSize;
         [self maybeRollLogFileDueToSize];
-        
-    }};
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation MUST access the maximumFileSize variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_async(globalLoggingQueue, ^{
-        dispatch_async(loggerQueue, block);
-    });
+    }];
 }
 
 - (NSTimeInterval)rollingFrequency
 {
     __block NSTimeInterval result;
-    
-    dispatch_block_t block = ^{
+    [self performGetterBlock:^{
         result = rollingFrequency;
-    };
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation should access the rollingFrequency variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_sync(globalLoggingQueue, ^{
-        dispatch_sync(loggerQueue, block);
-    });
-    
-    return result;
+    }];
+	return result;
 }
 
 - (void)setRollingFrequency:(NSTimeInterval)newRollingFrequency
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+	[self performSetterBlock:^{
         rollingFrequency = newRollingFrequency;
         [self maybeRollLogFileDueToAge];
-    }};
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation should access the rollingFrequency variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_async(globalLoggingQueue, ^{
-        dispatch_async(loggerQueue, block);
-    });
+    }];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -792,37 +708,9 @@ BOOL doesAppRunInBackground(void);
 
 - (void)rollLogFileWithCompletionBlock:(void (^)())completionBlock
 {
-    // This method is public.
-    // We need to execute the rolling on our logging thread/queue.
-    
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         [self rollLogFileNow];
-
-        if (completionBlock)
-        {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                completionBlock();
-            });
-        }
-    }};
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:completionBlock];
 }
 
 - (void)rollLogFileNow

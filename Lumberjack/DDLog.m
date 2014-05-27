@@ -87,6 +87,14 @@ static void *const GlobalLoggingQueueIdentityKey = (void *)&GlobalLoggingQueueId
 #pragma mark -
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static inline dispatch_block_t DDBlockInAutoreleasePool(dispatch_block_t block) {
+	return ^{
+		@autoreleasepool {
+			if (block) block();
+		}
+	};
+}
+
 @implementation DDLog
 
 // An array used to manage all the individual loggers.
@@ -181,12 +189,18 @@ static unsigned int numProcessors;
     });
 }
 
-/**
- * Provides access to the logging queue.
-**/
-+ (dispatch_queue_t)loggingQueue
++ (void)performBlock:(void(^)(void))block
 {
-    return loggingQueue;
+	if (!block) return;
+
+	dispatch_async(loggingQueue, DDBlockInAutoreleasePool(block));
+}
+
++ (void)performBlockAndWait:(void(^)(void))block
+{
+	if (!block) return;
+
+	dispatch_sync(loggingQueue, DDBlockInAutoreleasePool(block));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1122,99 +1136,30 @@ static char *dd_str_copy(const char *str)
 
 - (id <DDLogFormatter>)logFormatter
 {
-    // This method must be thread safe and intuitive.
-    // Therefore if somebody executes the following code:
-    // 
-    // [logger setLogFormatter:myFormatter];
-    // formatter = [logger logFormatter];
-    // 
-    // They would expect formatter to equal myFormatter.
-    // This functionality must be ensured by the getter and setter method.
-    //
-    // The thread safety must not come at a cost to the performance of the logMessage method.
-    // This method is likely called sporadically, while the logMessage method is called repeatedly.
-    // This means, the implementation of this method:
-    // - Must NOT require the logMessage method to acquire a lock.
-    // - Must NOT require the logMessage method to access an atomic property (also a lock of sorts).
-    //
-    // Thread safety is ensured by executing access to the formatter variable on the loggerQueue.
-    // This is the same queue that the logMessage method operates on.
-    //
-    // Note: The last time I benchmarked the performance of direct access vs atomic property access,
-    // direct access was over twice as fast on the desktop and over 6 times as fast on the iPhone.
-    // 
-    // Furthermore, consider the following code:
-    //
-    // DDLogVerbose(@"log msg 1");
-    // DDLogVerbose(@"log msg 2");
-    // [logger setFormatter:myFormatter];
-    // DDLogVerbose(@"log msg 3");
-    //
-    // Our intuitive requirement means that the new formatter will only apply to the 3rd log message.
-    // This must remain true even when using asynchronous logging.
-    // We must keep in mind the various queue's that are in play here:
-    // 
-    // loggerQueue : Our own private internal queue that the logMessage method runs on.
-    //               Operations are added to this queue from the global loggingQueue.
-    // 
-    // globalLoggingQueue : The queue that all log messages go through before they arrive in our loggerQueue.
-    // 
-    // All log statements go through the serial gloabalLoggingQueue before they arrive at our loggerQueue.
-    // Thus this method also goes through the serial globalLoggingQueue to ensure intuitive operation.
-    
-    // IMPORTANT NOTE:
-    // 
-    // Methods within the DDLogger implementation MUST access the formatter ivar directly.
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
     __block id <DDLogFormatter> result;
-    
-    dispatch_sync(globalLoggingQueue, ^{
-        dispatch_sync(loggerQueue, ^{
-            result = formatter;
-        });
-    });
-    
-    return result;
+	[self performGetterBlock:^{
+		result = formatter;
+	}];
+	return result;
 }
 
 - (void)setLogFormatter:(id <DDLogFormatter>)logFormatter
 {
-    // The design of this method is documented extensively in the logFormatter message (above in code).
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
-        if (formatter != logFormatter)
-        {
-            if ([formatter respondsToSelector:@selector(willRemoveFromLogger:)]) {
-                [formatter willRemoveFromLogger:self];
-            }
-            
-            formatter = logFormatter;
-            
-            if ([formatter respondsToSelector:@selector(didAddToLogger:)]) {
-                [formatter didAddToLogger:self];
-            }
-        }
-    }};
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_async(globalLoggingQueue, ^{
-        dispatch_async(loggerQueue, block);
-    });
+	[self performSetterBlock:^{
+		if (formatter == logFormatter) {
+			return;
+		}
+
+		if ([formatter respondsToSelector:@selector(willRemoveFromLogger:)]) {
+			[formatter willRemoveFromLogger:self];
+		}
+
+		formatter = logFormatter;
+
+		if ([formatter respondsToSelector:@selector(didAddToLogger:)]) {
+			[formatter didAddToLogger:self];
+		}
+	}];
 }
 
 - (dispatch_queue_t)loggerQueue
@@ -1236,6 +1181,86 @@ static char *dd_str_copy(const char *str)
 {
     void *key = (__bridge void *)self;
     return (dispatch_get_specific(key) != NULL);
+}
+
+- (void)performGetterBlock:(void(^)(void))block
+{
+	// This method must be thread safe and intuitive.
+	// Therefore if somebody executes the following code:
+	//
+	// [logger setLogFormatter:myFormatter];
+	// formatter = [logger logFormatter];
+	//
+	// They would expect formatter to equal myFormatter.
+	// This functionality must be ensured by the getter and setter method.
+	//
+	// The thread safety must not come at a cost to the performance of the logMessage method.
+	// This method is likely called sporadically, while the logMessage method is called repeatedly.
+	// This means, the implementation of this method:
+	// - Must NOT require the logMessage method to acquire a lock.
+	// - Must NOT require the logMessage method to access an atomic property (also a lock of sorts).
+	//
+	// Thread safety is ensured by executing access to the formatter variable on the loggerQueue.
+	// This is the same queue that the logMessage method operates on.
+	//
+	// Note: The last time I benchmarked the performance of direct access vs atomic property access,
+	// direct access was over twice as fast on the desktop and over 6 times as fast on the iPhone.
+	//
+	// Furthermore, consider the following code:
+	//
+	// HBALogVerbose(@"log msg 1");
+	// HBALogVerbose(@"log msg 2");
+	// [logger setFormatter:myFormatter];
+	// HBALogVerbose(@"log msg 3");
+	//
+	// Our intuitive requirement means that the new formatter will only apply to the 3rd log message.
+	// This must remain true even when using asynchronous logging.
+	// We must keep in mind the various queue's that are in play here:
+	//
+	// loggerQueue : Our own private internal queue that the logMessage method runs on.
+	//               Operations are added to this queue from the global loggingQueue.
+	//
+	// globalLoggingQueue : The queue that all log messages go through before they arrive in our loggerQueue.
+	//
+	// All log statements go through the serial gloabalLoggingQueue before they arrive at our loggerQueue.
+	// Thus this method also goes through the serial globalLoggingQueue to ensure intuitive operation.
+
+	NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
+    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
+
+	[DDLog performBlockAndWait:^{
+		dispatch_sync(loggerQueue, DDBlockInAutoreleasePool(block));
+	}];
+}
+
+- (void)performSetterBlock:(void(^)(void))block
+{
+	// The design of this method is documented extensively above.
+
+    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
+    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
+
+	[DDLog performBlock:^{
+		dispatch_async(loggerQueue, DDBlockInAutoreleasePool(block));
+	}];
+}
+
+- (void)performBlock:(void(^)(void))block completion:(void (^)(void))completionBlock
+{
+	// The design of this method is documented extensively above.
+
+	void (^inner)(void) = ^{
+		if (block) block();
+		if (completionBlock) dispatch_async(dispatch_get_main_queue(), completionBlock);
+	};
+
+    if ([self isOnInternalLoggerQueue]) {
+        inner();
+    } else {
+		[DDLog performBlock:^{
+			dispatch_async(loggerQueue, DDBlockInAutoreleasePool(inner));
+		}];
+    }
 }
 
 @end

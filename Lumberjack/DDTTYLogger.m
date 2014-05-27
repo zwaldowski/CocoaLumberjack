@@ -868,61 +868,22 @@ static DDTTYLogger *sharedInstance;
 
 - (BOOL)colorsEnabled
 {
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation MUST access the colorsEnabled variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
     __block BOOL result;
-    
-    dispatch_sync(globalLoggingQueue, ^{
-        dispatch_sync(loggerQueue, ^{
-            result = colorsEnabled;
-        });
-    });
-    
+	[self performGetterBlock:^{
+		result = colorsEnabled;
+	}];
     return result;
 }
 
 - (void)setColorsEnabled:(BOOL)newColorsEnabled
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+	[self performSetterBlock:^{
         colorsEnabled = newColorsEnabled;
-        
+
         if ([colorProfilesArray count] == 0) {
             [self loadDefaultColorProfiles];
         }
-    }};
-    
-    // The design of this method is taken from the DDAbstractLogger implementation.
-    // For extensive documentation please refer to the DDAbstractLogger implementation.
-    
-    // Note: The internal implementation MUST access the colorsEnabled variable directly,
-    // This method is designed explicitly for external access.
-    //
-    // Using "self." syntax to go through this method will cause immediate deadlock.
-    // This is the intended result. Fix it by accessing the ivar directly.
-    // Great strides have been take to ensure this is safe to do. Plus it's MUCH faster.
-    
-    NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-    NSAssert(![self isOnInternalLoggerQueue], @"MUST access ivar directly, NOT via self.* syntax.");
-    
-    dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-    
-    dispatch_async(globalLoggingQueue, ^{
-        dispatch_async(loggerQueue, block);
-    });
+	}];
 }
 
 - (void)setForegroundColor:(OSColor *)txtColor backgroundColor:(OSColor *)bgColor forFlag:(int)mask
@@ -932,8 +893,7 @@ static DDTTYLogger *sharedInstance;
 
 - (void)setForegroundColor:(OSColor *)txtColor backgroundColor:(OSColor *)bgColor forFlag:(int)mask context:(int)ctxt
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         DDTTYLoggerColorProfile *newColorProfile =
             [[DDTTYLoggerColorProfile alloc] initWithForegroundColor:txtColor
                                                      backgroundColor:bgColor
@@ -957,32 +917,14 @@ static DDTTYLogger *sharedInstance;
             [colorProfilesArray replaceObjectAtIndex:i withObject:newColorProfile];
         else
             [colorProfilesArray addObject:newColorProfile];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)setForegroundColor:(OSColor *)txtColor backgroundColor:(OSColor *)bgColor forTag:(id <NSCopying>)tag
 {
     NSAssert([(id <NSObject>)tag conformsToProtocol:@protocol(NSCopying)], @"Invalid tag");
     
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         DDTTYLoggerColorProfile *newColorProfile =
             [[DDTTYLoggerColorProfile alloc] initWithForegroundColor:txtColor
                                                      backgroundColor:bgColor
@@ -992,24 +934,7 @@ static DDTTYLogger *sharedInstance;
         NSLogInfo(@"DDTTYLogger: newColorProfile: %@", newColorProfile);
         
         [colorProfilesDict setObject:newColorProfile forKey:tag];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)clearColorsForFlag:(int)mask
@@ -1019,8 +944,7 @@ static DDTTYLogger *sharedInstance;
 
 - (void)clearColorsForFlag:(int)mask context:(int)context
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         NSUInteger i = 0;
         for (DDTTYLoggerColorProfile *colorProfile in colorProfilesArray)
         {
@@ -1036,127 +960,38 @@ static DDTTYLogger *sharedInstance;
         {
             [colorProfilesArray removeObjectAtIndex:i];
         }
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)clearColorsForTag:(id <NSCopying>)tag
 {
     NSAssert([(id <NSObject>)tag conformsToProtocol:@protocol(NSCopying)], @"Invalid tag");
     
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         [colorProfilesDict removeObjectForKey:tag];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)clearColorsForAllFlags
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         [colorProfilesArray removeAllObjects];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)clearColorsForAllTags
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         [colorProfilesDict removeAllObjects];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)clearAllColors
 {
-    dispatch_block_t block = ^{ @autoreleasepool {
-        
+    [self performBlock:^{
         [colorProfilesArray removeAllObjects];
         [colorProfilesDict removeAllObjects];
-    }};
-    
-    // The design of the setter logic below is taken from the DDAbstractLogger implementation.
-    // For documentation please refer to the DDAbstractLogger implementation.
-    
-    if ([self isOnInternalLoggerQueue])
-    {
-        block();
-    }
-    else
-    {
-        dispatch_queue_t globalLoggingQueue = [DDLog loggingQueue];
-        NSAssert(![self isOnGlobalLoggingQueue], @"Core architecture requirement failure");
-        
-        dispatch_async(globalLoggingQueue, ^{
-            dispatch_async(loggerQueue, block);
-        });
-    }
+    } completion:NULL];
 }
 
 - (void)logMessage:(DDLogMessage *)logMessage
